@@ -1,9 +1,8 @@
 import React, { Component } from "react";
 import Joi from "joi-browser";
 import Form from "../components/common/form";
-import {  getGenres } from '../services/fakeGenreService';
-
-import {getMovie, saveMovie } from './../services/fakeMovieService';
+import {  getGenres } from '../services/genreService';
+import {getMovie, saveMovie } from './../services/movieService';
 
 class MovieForm extends Form {
   state = {
@@ -17,26 +16,27 @@ class MovieForm extends Form {
   };
 
   schema = {
+    _id: Joi.string(),
     title: Joi.string()
       .required()
       .label("Title"),
-      genreId: Joi.string()
+    genreId: Joi.string()
       .required()
       .label("Genre"),
-      numberInStock: Joi.number()
+    numberInStock: Joi.number()
+      .required()
       .min(0)
       .max(100)
-      .required()
-      .label("Number in stock"),
-      dailyRentalRate: Joi.number()
+      .label("Number in Stock"),
+    dailyRentalRate: Joi.number()
       .required()
       .min(0)
       .max(10)
       .label("Daily Rental Rate")
   };
 
-  doSubmit = () => {
-    saveMovie(this.state.data);
+   doSubmit = async() => {
+    await saveMovie(this.state.data);
     this.props.history.push('/movies');
   };
 
@@ -50,21 +50,33 @@ class MovieForm extends Form {
     };
 
   }
- 
-  componentDidMount(){
-    const genres= getGenres();
+
+  async populateGenres()
+  {
+    const {data:genres}= await getGenres();
     this.setState({genres});
 
-    const movieId=this.props.match.params.id;
+  }
 
-    if(movieId==="new") return;
+  async populateMovies(){
+    try{
+      const movieId=this.props.match.params.id;
+      if(movieId==="new") return;
+      const {data:movie}=await getMovie(movieId);
+      this.setState({data:this.mapToViewModel(movie)});
 
-    const movie=getMovie(movieId);
+    }
+    catch(ex){
+      if(ex.response&&ex.response.status===404) 
+      this.props.history.push('/not-found');
 
-    if(!movie) return this.props.history.push('/not-found');
+    }
 
-    this.setState({data:this.mapToViewModel(movie)})
-
+  }
+ 
+  async componentDidMount(){
+    await this.populateGenres();
+    await this.populateMovies();
  }
 
   render() {
